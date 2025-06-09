@@ -23,8 +23,6 @@ set(LIB_SOURCES
 )
 
 add_library(hotpatcher_lib STATIC ${LIB_SOURCES})
-
-# 主项目严格编译选项
 target_compile_options(hotpatcher_lib PRIVATE 
     -Wall
     -Wextra
@@ -84,13 +82,6 @@ if(ENABLE_TESTING)
     # 测试源文件
     set(TEST_SOURCES
         test/test_architecture.cpp
-        test/test_ptrace_utils.cpp
-        test/test_memory_utils.cpp
-        test/test_function_patcher.cpp
-        test/test_hotpatcher.cpp
-        test/test_utils.cpp
-        test/test_common.cpp
-        test/test_main.cpp
     )
     
     

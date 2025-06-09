@@ -7,13 +7,13 @@
 
 class FtpTransmit : public RemoteTransmit {
 public:
-    int transmit(Device_info);
+    FtpTransmit(const Device_info &device_info) : m_device_info(device_info) {}
+    int transmit() override;
 
 private:
     int connect();
-    int send_file(const Device_info& device_info);
+    int send_file();
 
 private:
-    int m_socket_fd{ -1 }; // 套接字文件描述符
-    std::string m_file_path; // 要传输的文件路径
+    int m_socket_fd{ -1 };
 };

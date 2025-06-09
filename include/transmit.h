@@ -7,6 +7,8 @@
 
 namespace RemoteDebug {
 
+constexpr char *remote_file_path = "/tmp/remote_debug_file"; // 远端文件路径
+
 enum class TRANSMIT_TYPE {
     FTP,
     TELNET,
