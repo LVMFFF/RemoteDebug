@@ -12,15 +12,43 @@
   -> 查找dlsym地址  -> 查找补丁函数在目标进程和补丁文件中的位置
   -> 将目标函数的入口指令替换为补丁中函数的地址
 
-## 一、数据交互：创建内存映射，目标进程读取补丁数据
+## 内存操作：在目标进程读写数据
 - 分配内存
+```cpp
+// 获取原始寄存器内容保存
+orig_regs = ptrace(PTRACE_GETREGS,...）
+
+// 修改寄存器内容，此处使用 SYS_mmap 系统调用分配空间
+// 与具体架构有关，此处使用 x86_64 架构为例
+regs.rax = SYS_mmap; // rax 寄存器存储系统调用号
+regs.rdi = 0;        // 地址 (0 = 由内核选择); rdi 存储系统调用第一个参数，下面的寄存器递加
+regs.rsi = size;     // 大小
+regs.rdx = PROT_READ | PROT_WRITE | PROT_EXEC; // 保护标志
+regs.r10 = MAP_PRIVATE | MAP_ANONYMOUS; // 标志
+regs.r8 = -1;        // 文件描述符
+regs.r9 = 0;         // 偏移
+
+// 设置寄存器，执行系统调用
+ptrace(PTRACE_SETREGS,...)
+ptrace(PTRACE_SYSCALL,...)
+
+// 获取结果，恢复寄存器
+ptrace(PTRACE_GETREGS,...)
+ptrace(PTRACE_SETREGS, ..., &orig_regs)
 ```
-addr = syscall(SYS_mmap, NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1 0)
+
+- 写入数据
+ptrace 写入的数据必须是对齐的，使用long进行对齐
+```
+// 1、对齐内存
+size_t aligned_size = (size + sizeof(long) - 1) &  ~(sizeof(long) - 1)
+// 2、循环使用 ptrace(PTRACE_POKEDATA) 写入对齐后的数据
 ```
 
 - 释放内存
+// 
 ```
-syscall(SYS_munmap, addr, size)
+munmap(addr, size)
 ```
 
 - 读取目标进程内存空间中函数入口附近指令
@@ -114,6 +142,7 @@ tracee: 被控制进程(原进程）
   PTRACE_O_TRACEFORK： 被跟踪进程在下次调用fork()时停止执行，并自动跟踪新产生的进程
 - PTRACE_SYSCALL: 在调试的进程中跟踪系统调用。当使用 PTRACE_SYSCALL 时，调试器会在每次系统调用的进入和退出时暂停进程，从而允许调试器捕获和检查系统调用的详细信息
 - PTRACE_POKETEXT: 将数据写入目标进程的内存空间
+- PTRACE_POKEDATA: 一次写入一个字(word)的长度(与系统位宽有关)
 ## 其他使用到的 linux 函数
 ### waitpid： ptrace attach目标进程后，目标进程会处于停止态，调用 WIFSTOPPED 判断目标进程状态
   WIFSTOPPED(status)	如果当前子进程被暂停了，则返回真；否则返回假；
