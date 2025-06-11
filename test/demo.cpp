@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 
+#define MAX_STRING_LEN 256
 // 查找目标进程中的 libc 基地址
 unsigned long find_libc_base(pid_t pid) {
     char maps_path[256];
@@ -178,6 +179,90 @@ unsigned long call_dlsym(pid_t pid, unsigned long dlsym_addr, const char *symbol
     return regs.rax;
 }
 
+// 写数据到远程进程内存（字节对齐）
+int write_data(pid_t pid, unsigned long addr, const void *data, size_t len) {
+    size_t i = 0;
+    for (; i + sizeof(long) <= len; i += sizeof(long)) {
+        long val = *(long *)((char *)data + i);
+        if (ptrace(PTRACE_POKETEXT, pid, (void *)(addr + i), (void *)val) == -1) {
+            perror("PTRACE_POKETEXT");
+            return -1;
+        }
+    }
+    // 处理剩余字节
+    if (i < len) {
+        long val = ptrace(PTRACE_PEEKTEXT, pid, (void *)(addr + i), NULL);
+        if (val == -1 && errno) return -1;
+        memcpy(&val, (char *)data + i, len - i);
+        if (ptrace(PTRACE_POKETEXT, pid, (void *)(addr + i), (void *)val) == -1) {
+            perror("PTRACE_POKETEXT tail");
+            return -1;
+        }
+    }
+    return 0;
+}
+
+// 远程调用函数（调用约定为：rdi, rsi, rdx 参数，返回值在 rax）
+// func_addr: 函数地址
+// arg1, arg2: 参数
+// 返回 rax
+unsigned long remote_call(pid_t pid, unsigned long func_addr,
+                         unsigned long arg1, unsigned long arg2) {
+    struct user_regs_struct regs, original_regs;
+    if (ptrace(PTRACE_GETREGS, pid, NULL, &original_regs) == -1) {
+        perror("GETREGS");
+        return 0;
+    }
+
+    regs = original_regs;
+
+    // 分配远程栈空间（减小 rsp）
+    regs.rsp -= 0x100;
+
+    // 写返回地址为0，防止调用 ret 崩溃（简化处理）
+    if (ptrace(PTRACE_POKETEXT, pid, (void *)regs.rsp, 0) == -1) {
+        perror("POKETEXT return addr");
+        return 0;
+    }
+
+    // 设置函数调用参数
+    regs.rdi = arg1;
+    regs.rsi = arg2;
+    regs.rip = func_addr;
+
+    if (ptrace(PTRACE_SETREGS, pid, NULL, &regs) == -1) {
+        perror("SETREGS");
+        return 0;
+    }
+
+    if (ptrace(PTRACE_CONT, pid, NULL, NULL) == -1) {
+        perror("CONT");
+        return 0;
+    }
+
+    int status;
+    waitpid(pid, &status, 0);
+    if (!WIFSTOPPED(status)) {
+        fprintf(stderr, "Target did not stop after call\n");
+        return 0;
+    }
+
+    if (ptrace(PTRACE_GETREGS, pid, NULL, &regs) == -1) {
+        perror("GETREGS after call");
+        return 0;
+    }
+
+    unsigned long ret = regs.rax;
+
+    // 恢复寄存器
+    if (ptrace(PTRACE_SETREGS, pid, NULL, &original_regs) == -1) {
+        perror("SETREGS restore");
+        return 0;
+    }
+
+    return ret;
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <pid>\n", argv[0]);
@@ -225,17 +310,60 @@ int main(int argc, char *argv[]) {
     unsigned long dlsym_addr = libc_base + dlsym_offset;
     printf("dlsym address: 0x%lx\n", dlsym_addr);
 
-    unsigned long printf_addr = call_dlsym(pid, dlsym_addr, "printf");
-    if (!printf_addr) {
-        fprintf(stderr, "Failed to find printf address\n");
+
+
+    struct user_regs_struct regs;
+    if (ptrace(PTRACE_GETREGS, pid, NULL, &regs) == -1) {
+        perror("ptrace getregs");
+        ptrace(PTRACE_DETACH, pid, NULL, NULL);
+        return 1;
+    }
+    unsigned long remote_stack = regs.rsp;
+
+    // 写入字符串 "printf"
+    const char *printf_str = "printf";
+    unsigned long printf_str_addr = remote_stack - MAX_STRING_LEN;
+    if (write_data(pid, printf_str_addr, printf_str, strlen(printf_str) + 1) == -1) {
+        fprintf(stderr, "Failed to write string 'printf'\n");
         ptrace(PTRACE_DETACH, pid, NULL, NULL);
         return 1;
     }
 
-    printf("dlsym printf address: 0x%lx\n", printf_addr);
+    // 调用 dlsym(handle, "printf")
+    unsigned long printf_addr = remote_call(pid, dlsym_addr, (unsigned long)RTLD_DEFAULT, printf_str_addr);
+    if (!printf_addr) {
+        fprintf(stderr, "dlsym failed to find 'printf'\n");
+    } else {
+        printf("printf address: 0x%lx\n", printf_addr);
+    }
+
+
+    // 写入字符串到目标进程栈
+    const char *message = "Hello from remote printf!\n";
+    unsigned long message_addr = remote_stack - 2 * MAX_STRING_LEN;
+    if (write_data(pid, message_addr, message, strlen(message) + 1) == -1) {
+        fprintf(stderr, "Failed to write message string\n");
+        ptrace(PTRACE_DETACH, pid, NULL, NULL);
+        return 1;
+    }
+
+    // 远程调用 printf
+    // remote_call(pid, printf_addr, message_addr, 0);
 
     unsigned long printf_offset = find_symbol_offset(libc_path, "printf");
-    printf("printf address: 0x%lx\n", libc_base + printf_offset);
+    printf("orign printf address: 0x%lx\n", libc_base + printf_offset);
+    remote_call(pid, libc_base + dlsym_offset, message_addr, 0);
+    // unsigned long printf_addr = call_dlsym(pid, dlsym_addr, "printf");
+    // if (!printf_addr) {
+    //     fprintf(stderr, "Failed to find printf address\n");
+    //     ptrace(PTRACE_DETACH, pid, NULL, NULL);
+    //     return 1;
+    // }
+
+    // printf("dlsym printf address: 0x%lx\n", printf_addr);
+
+    // unsigned long printf_offset = find_symbol_offset(libc_path, "printf");
+    // printf("printf address: 0x%lx\n", libc_base + printf_offset);
 
     ptrace(PTRACE_DETACH, pid, NULL, NULL);
     return 0;
