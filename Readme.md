@@ -6,12 +6,12 @@
 
 - windows: 在目标进程创建线程执行补丁工具进行函数替换
 - linux: 
-
 查找目标进程原始函数地址 
   -> 查找 dlopen 函数地址 -> 将补丁文件链接进目标进程 
   -> 查找dlsym地址  -> 查找补丁函数在目标进程和补丁文件中的位置
   -> 将目标函数的入口指令替换为补丁中函数的地址
 
+下面以linux上 x86_64 架构为例：
 ## 内存操作：在目标进程读写数据
 - 分配内存
 ```cpp
@@ -45,18 +45,8 @@ size_t aligned_size = (size + sizeof(long) - 1) &  ~(sizeof(long) - 1)
 // 2、循环使用 ptrace(PTRACE_POKEDATA) 写入对齐后的数据
 ```
 
-- 释放内存
-// 
-```
-munmap(addr, size)
-```
-
-- 读取目标进程内存空间中函数入口附近指令
-```
-process_vm_readv(pid, &local_iov, 1, &remote_iov, 1, 0)
-```
-
-## 目标进程函数执行
+## 函数调用：在目标进程调用函数
+- 目标进程调用函数
 ```cpp
 // 1、获取目标进程上下文
 ptrace(PTRACE_ATTACH,..)
@@ -69,6 +59,18 @@ resg.rip = (unsign long)target_func
 ptrace(PTRACE_SETREGS,...)
 ptrace(PTRACE_DETACH,...)
 ```
+
+- 修改内存保护
+调用 mprotect 函数，
+```
+#include <sys/mman.h>
+int mprotect(void *addr, size_t len, int prot);
+```
+
+## 代码注入：修改进程中函数入口指令
+
+
+
 
 ### 
 在目标进程中查找函数
