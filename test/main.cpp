@@ -8,6 +8,7 @@ void symbol_test()
 {
     printf("symbol_test \n");
     while(true) {
+        fflush(stdout);
         std::this_thread::sleep_for(milliseconds(1000));
     }
 }
