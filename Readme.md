@@ -3,6 +3,10 @@
 
 
 # 原理
+
+- windows: 在目标进程创建线程执行补丁工具进行函数替换
+- linux: 
+
 查找目标进程原始函数地址 
   -> 查找 dlopen 函数地址 -> 将补丁文件链接进目标进程 
   -> 查找dlsym地址  -> 查找补丁函数在目标进程和补丁文件中的位置
@@ -19,8 +23,24 @@ addr = syscall(SYS_mmap, NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRI
 syscall(SYS_munmap, addr, size)
 ```
 
-- 
+- 读取目标进程内存空间中函数入口附近指令
+```
+process_vm_readv(pid, &local_iov, 1, &remote_iov, 1, 0)
+```
 
+## 目标进程函数执行
+```cpp
+// 1、获取目标进程上下文
+ptrace(PTRACE_ATTACH,..)
+ptrace(PTRACE_GETREGS,...） 
+
+// 2、修改指令指针指向目标函数
+resg.rip = (unsign long)target_func
+
+// 3、恢复上下文
+ptrace(PTRACE_SETREGS,...)
+ptrace(PTRACE_DETACH,...)
+```
 
 ### 
 在目标进程中查找函数
@@ -37,9 +57,8 @@ syscall(SYS_munmap, addr, size)
 
 ## 底层函数
 
-### syscall/mmap
-
-- syscall: 系统调用的实现机制
+### 系统调用
+- syscall: 调用系统调用
 ```
 syscall
 ```
@@ -48,6 +67,7 @@ syscall
 ```
 #include <sys/mman.h>
 void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+
 addr：映射的起始地址，通常为 NULL，表示由系统选择。
 length：映射的长度。
 prot：内存保护标志，如 PROT_READ、PROT_WRITE。
@@ -63,7 +83,21 @@ offset：文件中的偏移量，通常为 0。
 ssize_t process_vm_readv(pid_t pid, const struct iovec *local_iov,
                          unsigned long liovcnt, const struct iovec *remote_iov,
                          unsigned long riovcnt, unsigned long flags);
+
+pid：目标进程的进程 ID。
+local_iov：指向本地 iovec 结构体数组的指针，用于存储从目标进程读取的数据。
+liovcnt：本地 iovec 数组的元素个数。
+remote_iov：指向远程（目标进程）iovec 结构体数组的指针，指定要读取的内存区域。
+riovcnt：远程 iovec 数组的元素个数。
+flags：目前必须设置为 0。
 ```
+
+- sysconf: 获取系统配置信息
+    _SC_PAGESIZE: 获取系统中内存页的大小
+
+    
+  
+
 ### ptrace
 tracer: 本地热补丁工具生成的控制进程
 tracee: 被控制进程(原进程）
@@ -79,6 +113,7 @@ tracee: 被控制进程(原进程）
   PTRACE_O_EXITKILL： 跟踪进程退出时，向所有被跟踪进程发送SIGKILL信号将其退出
   PTRACE_O_TRACEFORK： 被跟踪进程在下次调用fork()时停止执行，并自动跟踪新产生的进程
 - PTRACE_SYSCALL: 在调试的进程中跟踪系统调用。当使用 PTRACE_SYSCALL 时，调试器会在每次系统调用的进入和退出时暂停进程，从而允许调试器捕获和检查系统调用的详细信息
+- PTRACE_POKETEXT: 将数据写入目标进程的内存空间
 ## 其他使用到的 linux 函数
 ### waitpid： ptrace attach目标进程后，目标进程会处于停止态，调用 WIFSTOPPED 判断目标进程状态
   WIFSTOPPED(status)	如果当前子进程被暂停了，则返回真；否则返回假；
