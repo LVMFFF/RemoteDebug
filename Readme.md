@@ -3,7 +3,68 @@
 
 
 # 原理
-## ptrace
+查找目标进程原始函数地址 
+  -> 查找 dlopen 函数地址 -> 将补丁文件链接进目标进程 
+  -> 查找dlsym地址  -> 查找补丁函数在目标进程和补丁文件中的位置
+  -> 将目标函数的入口指令替换为补丁中函数的地址
+
+## 一、数据交互：创建内存映射，目标进程读取补丁数据
+- 分配内存
+```
+addr = syscall(SYS_mmap, NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1 0)
+```
+
+- 释放内存
+```
+syscall(SYS_munmap, addr, size)
+```
+
+- 
+
+
+### 
+在目标进程中查找函数
+### 
+
+
+目标进程执行函数
+当目标进程较大时链接动态库过多时，由本工具解析目标进程全部符号耗时会过长，可能导致目标进程心跳超时产生异常。
+目前方案是先解析出目标进程 `dlsym` 函数地址，调用目标进程本地的 `dlsym` 函数解析需要打补丁的函数地址。
+
+### 
+
+### 
+
+## 底层函数
+
+### syscall/mmap
+
+- syscall: 系统调用的实现机制
+```
+syscall
+```
+
+- mmap: 将文件或设备的内存映射到进程的地址空间。多个进程可以直接访问同一块物理内存区域，而无需通过复制数据的方式进行通信。
+```
+#include <sys/mman.h>
+void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+addr：映射的起始地址，通常为 NULL，表示由系统选择。
+length：映射的长度。
+prot：内存保护标志，如 PROT_READ、PROT_WRITE。
+flags：控制映射的类型，如 MAP_SHARED、MAP_PRIVATE。
+fd：文件描述符，用于指定要映射的文件。
+offset：文件中的偏移量，通常为 0。
+```
+
+### process_vm_readv: 从另一个进程的虚拟内存空间读取数据的系统调用
+```
+#include <sys/uio.h>
+#include <sys/socket.h>
+ssize_t process_vm_readv(pid_t pid, const struct iovec *local_iov,
+                         unsigned long liovcnt, const struct iovec *remote_iov,
+                         unsigned long riovcnt, unsigned long flags);
+```
+### ptrace
 tracer: 本地热补丁工具生成的控制进程
 tracee: 被控制进程(原进程）
 
@@ -12,10 +73,12 @@ tracee: 被控制进程(原进程）
   ptrace_stop首先将进程状态设置为TASK_TRACED，这样的话，下次进行进程调度时就不会调度该进程了。设置完进程状态后，会发送SIGCHLD信号通知当前进程的parent和real_parent。最后调用freezable_schedule进行进程调度，将该进程停下来。
 - PTRACE_GETREGSET: 获取寄存器信息：可替换当前寄存器信息，在目标进程内执行函数
 - PTRACE_CONT： 使用 PTRACE_ATTACH 附加到 tracee 并暂停其执行后，让被附加并暂停的进程（tracee）继续执行；
+- PTRACE_PEEKTEXT	读取目标进程内存	查看变量值
 - PTRACE_SETOPTIONS: 设置追踪选项
   PTRACE_O_TRACEEXIT： 被跟踪进程在退出是停止其执行
   PTRACE_O_EXITKILL： 跟踪进程退出时，向所有被跟踪进程发送SIGKILL信号将其退出
   PTRACE_O_TRACEFORK： 被跟踪进程在下次调用fork()时停止执行，并自动跟踪新产生的进程
+- PTRACE_SYSCALL: 在调试的进程中跟踪系统调用。当使用 PTRACE_SYSCALL 时，调试器会在每次系统调用的进入和退出时暂停进程，从而允许调试器捕获和检查系统调用的详细信息
 ## 其他使用到的 linux 函数
 ### waitpid： ptrace attach目标进程后，目标进程会处于停止态，调用 WIFSTOPPED 判断目标进程状态
   WIFSTOPPED(status)	如果当前子进程被暂停了，则返回真；否则返回假；
