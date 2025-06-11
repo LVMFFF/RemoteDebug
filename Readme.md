@@ -1,6 +1,23 @@
 # 使用
+- **基本用法**
+```
+./hotpatcher <pid> <patch_lib>
+```
 
+- **详细模式**
+```
+./hotpatcher <pid> <patch_lib> --verbose
+```
 
+- **强制模式 (即使部分函数失败也继续)**
+```
+./hotpatcher <pid> <patch_lib> --force
+```
+
+- **示例**
+```
+./hotpatcher 1234 ./libmypatch.so --verbose
+```
 
 # 原理
 
@@ -50,6 +67,14 @@ size_t aligned_size = (size + sizeof(long) - 1) &  ~(sizeof(long) - 1)
 ```
 
 ## 函数调用：在目标进程调用函数
+
+- 后去目标进程中 `dlsym` 地址，后续其他函数地址可通过 `dlsym` 获取
+```
+// 读取 `/proc/pid/maps` 中内存空间映射信息
+
+// 读取 
+```
+
 - 目标进程调用函数
 ```cpp
 // 1、获取目标进程上下文
@@ -64,6 +89,7 @@ ptrace(PTRACE_SETREGS,...)
 ptrace(PTRACE_DETACH,...)
 ```
 
+- 通过 `dlsym` 获取函数地址
 - 修改内存保护
 调用 mprotect 函数，
 ```
@@ -72,10 +98,15 @@ int mprotect(void *addr, size_t len, int prot);
 ```
 
 ## 代码注入：修改进程中函数入口指令（由上述工具函数实现）
-### 注入共享库
+- 注入共享库
   - 1、在目标进程分配空间，将热补丁写入目标进程中进程
   - 2、获取目标进程 `dlopen` 函数地址
   - 3、调用 `dlopen` 加载热补丁
+
+- 修改目标进程中目标函数指令
+- 修改目标进程中目标函数所在页的权限为可写
+- 写入跳转指令，跳转到热补丁中的函数地址
+- 恢复内存保护
 
 ### 
 
