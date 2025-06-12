@@ -179,7 +179,8 @@ unsigned long remote_call(pid_t pid, unsigned long func_addr,
 
     regs.rsp -= 0x100;        // 分配足够空间（对齐可选）
     // 在栈顶压入返回地址（这里写入 0，使 printf 返回后触发 SIGSEGV）
-    regs.rsp -= 8;
+    regs.rsp &= ~0xF; // 16 字节对齐
+    regs.rsp -= sizeof(long);
     if (ptrace(PTRACE_POKEDATA, pid, (void*)regs.rsp, (long)0) == -1)
         handle_error("PTRACE_POKEDATA return");
     regs.rdi = arg1;
@@ -251,7 +252,7 @@ int main(int argc, char *argv[]) {
     }
     unsigned long remote_stack = regs.rsp;
 
-    const char *message = "Hello from remote printf!\n";
+    const char *message = "print_special_symblo";
     unsigned long message_addr = remote_stack - 2 * MAX_STRING_LEN;
 
     // 调试输出，确认地址是否在合法堆栈范围
@@ -277,7 +278,8 @@ int main(int argc, char *argv[]) {
     // remote_call(pid, write_addr, 1, message_addr, strlen(message) + 1);
 
 
-
+    unsigned long dlsym_offset = find_symbol_offset(libc_path, "dlsym");
+    remote_call(pid, libc_base + dlsym_offset, 0, message_addr, 0);
 
     unsigned long printf_offset = find_symbol_offset(libc_path, "printf");
     unsigned long fflush_offset = find_symbol_offset(libc_path, "fflush");
@@ -289,7 +291,7 @@ int main(int argc, char *argv[]) {
     printf("fflush address: 0x%lx\n", fflush_addr);
 
     // 调用 printf
-    remote_call(pid, printf_addr, message_addr, 0, 0);
+    remote_call(pid, printf_addr, message_addr + 2, 0, 0);
 
     // 调用 fflush(NULL)
     remote_call(pid, fflush_addr, 0, 0, 0);
