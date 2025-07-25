@@ -6,10 +6,9 @@ using namespace std::chrono;
 
 void symbol_test()
 {
-    printf("symbol_test \n");
     while(true) {
-        fflush(stdout);
-        std::this_thread::sleep_for(milliseconds(1000));
+        printf("symbol_test \n");
+        std::this_thread::sleep_for(1s);
     }
 }
 
