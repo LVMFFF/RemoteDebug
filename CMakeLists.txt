@@ -2,23 +2,6 @@ cmake_minimum_required(VERSION 3.15)
 project(RemoteDebug VERSION 1.0.0 LANGUAGES C CXX)
 
 # ======================================
-# 强制指定 MinGW 工具链路径
-# 解决 "no such file or directory" 错误
-# ======================================
-
-# 设置 MinGW 路径 - 与 build.sh 中相同
-set(MINGW_PATH "D:/chrome/x86_64-13.2.0-release-posix-seh-ucrt-rt_v11-rev0/mingw64")
-
-# 显式指定编译器路径
-set(CMAKE_C_COMPILER "${MINGW_PATH}/bin/gcc.exe")
-set(CMAKE_CXX_COMPILER "${MINGW_PATH}/bin/g++.exe")
-set(CMAKE_MAKE_PROGRAM "${MINGW_PATH}/bin/mingw32-make.exe")
-
-# 禁用编译器检测（解决 broken compiler 错误）
-set(CMAKE_C_COMPILER_WORKS 1)
-set(CMAKE_CXX_COMPILER_WORKS 1)
-
-# ======================================
 # 项目基本配置
 # ======================================
 
@@ -84,6 +67,11 @@ install(TARGETS ${PROJECT_NAME}
     ARCHIVE DESTINATION lib
 )
 
+# 添加测试目录（如果存在）
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
+    add_subdirectory(test)
+endif()
+
 # 测试配置
 enable_testing()
 add_test(NAME BasicTest COMMAND ${PROJECT_NAME})
@@ -108,4 +96,4 @@ message(STATUS "项目名称: ${PROJECT_NAME}")
 message(STATUS "构建类型: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C 编译器: ${CMAKE_C_COMPILER}")
 message(STATUS "C++ 编译器: ${CMAKE_CXX_COMPILER}")
-message(STATUS "Make 程序: ${CMAKE_MAKE_PROGRAM}")
+message(STATUS "生成器: ${CMAKE_GENERATOR}")

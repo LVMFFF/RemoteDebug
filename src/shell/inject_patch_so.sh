@@ -20,11 +20,11 @@ if [ ! -f "$LIB_PATH" ]; then
 fi
 
 # 通过GDB注入动态库
-gdb -n -q -batch \
+gdb -n -q -batch \   # 不使用批处理模式防止挂死目标进程
     -ex "attach $PID" \
     -ex "set \$dlopen = (void*(*)(char*, int)) dlopen" \
     -ex "set \$dlerror = (char*(*)(void)) dlerror" \
-    -ex "call \$dlopen(\"$LIB_PATH\", 1)" \
+    -ex "call \$dlopen(\"$LIB_PATH\", 1)" \        # 延迟绑定
     -ex "call \$dlerror()" \
     -ex "detach" \
     -ex "quit" > gdb_output.txt 2>&1
