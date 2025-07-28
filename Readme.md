@@ -1,3 +1,20 @@
+/**
+ * @brief 函数简要说明（必填）
+ * @details 详细功能描述（可选）
+ * 
+ * @param[in] param1 输入参数说明
+ * @param[out] param2 输出参数说明
+ * @param[in,out] param3 输入输出参数
+ * 
+ * @return 返回值说明
+ * @retval 具体值 特定返回值的含义（如错误码）
+ * 
+ * @note 注意事项
+ * @warning 警告信息（如线程安全）
+ * @throw 异常类型 可能抛出的异常
+ * @see 参考其他函数/类
+ */
+
 # 使用
 - **基本用法**
 ```

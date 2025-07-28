@@ -86,21 +86,14 @@ else
     # 查找可执行文件
     echo ""
     echo "=== 查找生成的可执行文件 ==="
-    if [ -f "RemoteDebug" ]; then
-        echo "可执行文件: RemoteDebug"
-        echo ""
+    # 尝试通过find查找
+    find . -executable -type f | while read file; do
+        echo "发现可执行文件: ${file}"
         echo "=== 运行程序 ==="
-        ./RemoteDebug
-    else
-        # 尝试通过find查找
-        find . -executable -type f -name "RemoteDebug" | while read file; do
-            echo "发现可执行文件: ${file}"
-            echo "=== 运行程序 ==="
-            ${file}
-        done
-        if [ $? -ne 0 ]; then
-            echo "错误: 未找到可执行文件"
-            exit 1
-        fi
+        ${file}
+    done
+    if [ $? -ne 0 ]; then
+        echo "错误: 未找到可执行文件"
+        exit 1
     fi
 fi

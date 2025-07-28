@@ -8,6 +8,11 @@ target_link_libraries(inject_shell
         dl
 )
 
-add_library(patch SHARED
-    patch.cpp
+add_library(patch SHARED patch.cpp)
+
+add_executable(compile_source_test compile_source_test.cpp)
+target_include_directories(compile_source_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/third_party
 )
