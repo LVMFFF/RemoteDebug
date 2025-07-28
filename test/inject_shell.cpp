@@ -7,7 +7,7 @@ using namespace std::chrono;
 void symbol_test()
 {
     while(true) {
-        printf("symbol_test \n");
+        printf("original func \n");
         std::this_thread::sleep_for(1s);
     }
 }

@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# ======================================
-# 跨平台构建脚本 (支持 Windows/MinGW 和 Linux/WSL)
-# ======================================
-
 # 设置默认构建类型
 BUILD_TYPE="${1:-Release}"
 
@@ -18,8 +14,6 @@ case "${OS_NAME}" in
 esac
 
 echo "======================================="
-echo "       跨平台构建脚本启动"
-echo "======================================="
 echo "操作系统: ${OS}"
 echo "构建类型: ${BUILD_TYPE}"
 echo ""
@@ -32,23 +26,19 @@ cd build || { echo "错误: 无法进入 build 目录"; exit 1; }
 
 # 根据操作系统配置构建
 if [[ "${OS}" == "MinGW" || "${OS}" == "MSYS" || "${OS}" == "Cygwin" ]]; then
-    # Windows 环境 (MinGW)
-    # 设置 MinGW 路径 - 修改为您的实际路径
+    # 设置 MinGW 路径 - 修改为实际路径
     MINGW_PATH="D:/chrome/x86_64-13.2.0-release-posix-seh-ucrt-rt_v11-rev0/mingw64"
     echo "=== 使用 MinGW 工具链 ==="
     echo "MinGW 路径: ${MINGW_PATH}"
-    
-    # 将 MinGW 添加到 PATH
+
     export PATH="${MINGW_PATH}/bin:$PATH"
-    
-    # 验证工具链
+
     echo "=== 验证编译器工具链 ==="
     gcc --version || { echo "错误: gcc 未找到"; exit 1; }
     g++ --version || { echo "错误: g++ 未找到"; exit 1; }
     mingw32-make --version || { echo "错误: mingw32-make 未找到"; exit 1; }
     echo ""
     
-    # 使用 MinGW Makefiles
     echo "=== 生成构建系统 ==="
     cmake .. -G "MinGW Makefiles" \
         -DCMAKE_C_COMPILER="${MINGW_PATH}/bin/gcc.exe" \
