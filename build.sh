@@ -86,14 +86,28 @@ else
     # 查找可执行文件
     echo ""
     echo "=== 查找生成的可执行文件 ==="
-    # 尝试通过find查找
-    find . -executable -type f | while read file; do
-        echo "发现可执行文件: ${file}"
-        echo "=== 运行程序 ==="
-        ${file}
-    done
-    if [ $? -ne 0 ]; then
-        echo "错误: 未找到可执行文件"
+    BIN_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+    if [ ! -d "$BIN_DIR" ]; then
+        echo "错误: 目录 $BIN_DIR 不存在"
         exit 1
     fi
+    find "${BIN_DIR}/bin" -type f -executable -print | while read -r file; do
+        # 排除动态库和其他非目标文件
+        if [[ ! "$file" =~ \.(so|dylib|dll|a|lib)$ ]]; then
+            echo "=============================="
+            echo "执行程序: $(basename "$file")"
+            echo "完整路径: $file"
+            echo "=============================="
+            
+            # 在程序所在目录执行
+            (
+                cd "$(dirname "$file")"
+                "./$(basename "$file")"
+            )
+            
+            echo -e "\n"
+        else
+            echo "跳过动态库: $file"
+        fi
+    done
 fi

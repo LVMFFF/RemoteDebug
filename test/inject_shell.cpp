@@ -9,6 +9,7 @@ void symbol_test()
     while(true) {
         printf("original func \n");
         std::this_thread::sleep_for(1s);
+        break;
     }
 }
 

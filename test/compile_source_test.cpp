@@ -1,19 +1,32 @@
 #include "compile_source.h"
+using namespace LVMF;
 
 int main() {
-    // Initialize the CompileCommandManager with a sample compile command file
+
     CompileCommandManager manager("/mnt/d/code/RemoteDebug/build/compile_commands.json");
 
-    // Get compile command for a specific source file
-    auto command = manager.get_compile_command("/mnt/d/code/RemoteDebug/test/compile_source_test.cpp");
+    auto fullname = "/mnt/d/code/RemoteDebug/test/compile_source_test.cpp";
+    auto command = manager.get_compile_command(fullname);
     if (command) {
-        std::cout << "Compile command for example.cpp: " << *command << std::endl;
+        std::cout << "Compile command for " << fullname << ": " <<  *command << std::endl;
     } else {
-        std::cerr << "Failed to retrieve compile command for example.cpp." << std::endl;
+        std::cerr << "Failed to retrieve compile command for compile_source_test.cpp." << std::endl;
     }
 
+    auto basename = "compile_source_test.cpp";
+    auto basename2command = manager.get_compile_command(basename);
+    if (basename2command) {
+        std::cout << "Compile command for " << basename << ": " <<  *basename2command << std::endl;
+    } else {
+        std::cerr << "Failed to retrieve compile command for " << basename << std::endl;
+    }
+
+    auto not_found = manager.get_compile_command("non_existent_file.cpp");
+    if (not_found) {
+        std::cout << "Compile command for non_existent_file.cpp: \n";
+    }
     // Dump all compile commands
-    // manager.dump();
+    manager.dump();
 
     return 0;
 }

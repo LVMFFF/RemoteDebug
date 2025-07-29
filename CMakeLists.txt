@@ -14,7 +14,6 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ======================================
 # 编译选项配置
@@ -77,6 +76,16 @@ install(TARGETS ${PROJECT_NAME}
     ARCHIVE DESTINATION lib
 )
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# 4. 复制compile_commands.json
+set(SRC_JSON "${CMAKE_BINARY_DIR}/compile_commands.json")
+set(DST_JSON "${CMAKE_SOURCE_DIR}/.vscode/compile_commands.json")
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+       "${SRC_JSON}" "${DST_JSON}"
+   COMMENT "Updating compile_commands.json for VSCode"
+)
+
 # 添加测试目录（如果存在）
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
     add_subdirectory(test)
@@ -102,6 +111,7 @@ endif()
 # 构建后信息
 # ======================================
 
+message(STATUS "项目根目录: ${PROJECT_ROOT}")
 message(STATUS "项目名称: ${PROJECT_NAME}")
 message(STATUS "构建类型: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C 编译器: ${CMAKE_C_COMPILER}")
