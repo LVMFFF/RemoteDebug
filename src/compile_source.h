@@ -4,6 +4,7 @@
 #include <string>
 #include <optional>
 #include <unordered_map>
+#include <filesystem>
 
 namespace LVMF {
 
@@ -59,7 +60,8 @@ public:
             return -1; // 未找到编译命令
         }
 
-        std::string full_command = *command + " -o " + output_file + "/" + std::filesystem::path(source_file).filename().string() + ".o";
+        std::string full_command = *command + " -o " + output_file + "/" +
+            std::filesystem::path(source_file).filename().string() + ".o";
         for (const auto &opt : option) {
             full_command += " " + opt;
         }
