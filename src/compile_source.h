@@ -46,10 +46,12 @@ public:
     /**
      * @brief 编译源文件
      * @param source_file 源文件路径
+     * @param option 添加额外的编译选项
      * @param output_file 输出文件路径
      * @return 返回0表示成功，其他值表示失败
      */
-    int compile_source_file(const std::string &source_file, const std::string &output_file)
+    int compile_source_file(const std::string &source_file, const std::vector<std::string> &option,
+            const std::string &output_file)
     {
         const auto &command = get_compile_command(source_file);
         if (!command) {
@@ -57,8 +59,20 @@ public:
             return -1; // 未找到编译命令
         }
 
-        std::string full_command = *command + " -o " + output_file;
+        std::string full_command = *command + " -o " + output_file + "/" + std::filesystem::path(source_file).filename().string() + ".o";
+        for (const auto &opt : option) {
+            full_command += " " + opt;
+        }
 
+        std::cout << "Executing compile command: " << full_command << std::endl;
+        // 执行编译命令
+        int result = std::system(full_command.c_str());
+        if (result != 0) {
+            std::cerr << "Failed to compile source file: " << source_file << std::endl;
+            return result;
+        }
+
+        return 0;
     }
 
     /**

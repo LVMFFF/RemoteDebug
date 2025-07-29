@@ -1,4 +1,7 @@
 #include "compile_source.h"
+#include <vector>
+#include <filesystem>
+
 using namespace LVMF;
 
 int main() {
@@ -28,5 +31,9 @@ int main() {
     // Dump all compile commands
     manager.dump();
 
+    // 编译源文件
+    std::vector<std::string> options = {
+    };
+    [[maybe_unused]] auto compile_current_file = manager.compile_source_file(__FILE__, options, std::filesystem::current_path());
     return 0;
 }
